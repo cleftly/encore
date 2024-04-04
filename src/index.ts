@@ -3,49 +3,49 @@
 import YTMusic from './ytmusic-api/YTMusic.js';
 
 export default class Encore {
-    public id: string = 'com.cleftly.encore';
-    public name: string = 'Project Encore';
-    public author: string = 'Cleftly';
-    public description: string = "Somethin's abrewin'";
-    public version: string = '1.0.0';
-    public api_version: string = 'v1';
+    public static id: string = 'com.cleftly.encore';
+    // @ts-expect-error
+    public static name: string = 'Project Encore';
+    public static author: string = 'Cleftly';
+    public static description: string =
+        'Experimental YouTube Music plugin for Cleftly';
+    public static version: string = '1.0.0';
+    public static api_version: string = 'v1';
+    public static features: string[] = ['searchResults', 'externalTracks'];
 
     private api;
     private client: YTMusic;
-    private lastSearchTime = null;
     private lastSearchTimeout = null;
 
     private onSearch = (query: string) => {
-        this.lastSearchTime = Date.now();
-
         if (this.lastSearchTimeout) {
             clearTimeout(this.lastSearchTimeout);
         }
 
         this.lastSearchTimeout = setTimeout(() => {
-            this.lastSearchTime = null;
             this.lastSearchTimeout = null;
 
             this.client.searchSongs(query).then(async (res) => {
                 console.dir(res, { depth: null });
 
                 const payload = {
+                    id: 'encore_ytmusic',
                     title: 'Youtube Music',
                     results: res.map((r) => ({
-                        id: `yt_${r.videoId}`,
+                        id: `encore_yt_${r.videoId}`,
                         title: r.name,
                         artist: {
-                            id: `yt_${r.artist.artistId}`,
+                            id: `encore_yt_${r.artist.artistId}`,
                             name: r.artist.name,
                             genres: [],
                             createdAt: new Date()
                         },
-                        artistId: `yt_${r.artist.artistId}`,
+                        artistId: `encore_yt_${r.artist.artistId}`,
                         album: {
-                            id: `yt_${r.album.albumId}`,
-                            artistId: `yt_${r.artist.artistId}`,
+                            id: `encore_yt_${r.album.albumId}`,
+                            artistId: `encore_yt_${r.artist.artistId}`,
                             artist: {
-                                id: `yt_${r.artist.artistId}`,
+                                id: `encore_yt_${r.artist.artistId}`,
                                 name: r.artist.name,
                                 genres: [],
                                 createdAt: new Date()
@@ -55,10 +55,10 @@ export default class Encore {
                             albumArt: r.thumbnails[0]?.url,
                             createdAt: new Date()
                         },
-                        albumId: `yt_${r.album.albumId}`,
+                        albumId: `encore_yt_${r.album.albumId}`,
                         location: async () => {
                             return await window['__TAURI_INVOKE__'](
-                                'get_audio_url',
+                                'get_ytdl_url',
                                 {
                                     trackUrl: `https://www.youtube.com/watch?v=${r.videoId}`
                                 }
@@ -86,9 +86,29 @@ export default class Encore {
     public constructor(apis) {
         this.api = apis;
         this.client = new YTMusic();
-        this.client.initialize().then(() => {
-            console.log('Initialized Encore YTMusic Client');
-            this.api.events.eventManager.onEvent('onSearch', this.onSearch);
-        });
+        this.client
+            .initialize()
+            .then(() => {
+                window['__TAURI_INVOKE__']('check_for_ytdl').then((res) => {
+                    if (!res) {
+                        alert(
+                            "Failed to start Encore: Can't find yt-dlp or youtube-dl.\n\nPlease install yt-dlp from https://github.com/yt-dlp/yt-dlp and add it to your PATH."
+                        );
+                        return;
+                    }
+
+                    console.log('Initialized Encore YTMusic Client');
+                    this.api.events.eventManager.onEvent(
+                        'onSearch',
+                        this.onSearch
+                    );
+                });
+            })
+            .catch((err) => {
+                console.error(err);
+                alert(
+                    `Failed to start Encore: ${err?.message || 'Unknown error'}`
+                );
+            });
     }
 }
