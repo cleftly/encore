@@ -3,7 +3,9 @@
     "module": "index.ts",
     "type": "module",
     "scripts": {
-        "build": "bun build src/index.ts --target browser --outfile dist/encore.js"
+        "_build": "bun build src/index.ts --target browser --outfile dist/encore.js",
+        "build": "bun run _build --minify",
+        "dev": "bun run _build --watch"
     },
     "dependencies": {
         "@tauri-apps/api": "^1.5.3",
